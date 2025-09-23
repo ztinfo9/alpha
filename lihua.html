@@ -1,0 +1,325 @@
+
+
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>丽华-积分记录系统</title>
+  <style>
+    :root{
+      --bg:#f6fbff;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#10b981; /* green */
+      --accent-2:#3b82f6; /* blue */
+      --danger:#ef4444;
+      --glass: rgba(255,255,255,0.6);
+      --radius:16px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#eaf6ff);color:#0f172a;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px}
+    .wrap{width:100%;max-width:980px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+    .logo{width:56px;height:56px;background:linear-gradient(135deg,var(--accent-2),var(--accent));border-radius:14px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:20px;box-shadow:0 6px 18px rgba(16,185,129,0.12)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    main{display:grid;grid-template-columns:360px 1fr;gap:18px}
+
+    /* small screens */
+    @media (max-width:700px){
+      main{grid-template-columns:1fr}
+      .left,.right{width:100%}
+    }
+
+    .card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+
+    .left .card{padding:14px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+    input[type="date"], input[type="number"], select{width:100%;padding:10px 12px;font-size:15px;border-radius:10px;border:1px solid #e6eef7;background:transparent}
+    .row{display:flex;gap:10px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:var(--accent);color:white;border:0;font-weight:600;cursor:pointer}
+    .btn.secondary{background:transparent;color:var(--accent-2);border:1px solid rgba(59,130,246,0.12)}
+    .btn.ghost{background:transparent;color:var(--muted);border:1px solid rgba(15,23,42,0.04)}
+    .sumBox{background:linear-gradient(90deg, rgba(59,130,246,0.08), rgba(16,185,129,0.06));padding:12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center}
+    .sumBox .num{font-size:28px;font-weight:700;color:var(--accent-2)}
+    .list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,1), rgba(246,252,255,0.6));border:1px solid rgba(11,103,218,0.03)}
+    .list-item .date{font-weight:600}
+    .list-item .points{font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+    .small{font-size:13px}
+    .actions{display:flex;gap:6px}
+    .action-btn{background:transparent;border:0;padding:6px;border-radius:8px;cursor:pointer}
+    .action-btn:hover{background:rgba(2,6,23,0.04)}
+
+    .history-list{max-height:260px;overflow:auto;padding-right:6px}
+    .history-item{font-size:13px;padding:8px;border-bottom:1px dashed rgba(15,23,42,0.04);}
+    .empty{color:var(--muted);padding:12px;text-align:center}
+
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">积分</div>
+      <div>
+        <h1>丽华-积分记录</h1>
+        <p class="lead">记录最近15日积分</p>
+      </div>
+    </header>
+
+    <main>
+      <div class="left">
+        <div class="card">
+          <label for="dateInput">选择日期</label>
+          <input id="dateInput" type="date" />
+
+          <div style="height:8px"></div>
+
+          <label for="pointsInput">输入积分</label>
+          <input id="pointsInput" type="number" min="0" step="1" placeholder="例如 42" />
+
+          <div style="height:12px"></div>
+          <div class="row">
+            <button id="saveBtn" class="btn">记录</button>
+            <button id="deleteBtn" class="btn ghost">删除</button>
+            <button id="todayBtn" class="btn secondary">今天</button>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div class="sumBox">
+            <div>
+              <div class="muted">最近15日积分总和</div>
+              <div id="sumDisplay" class="num">0</div>
+            </div>
+            <div style="text-align:right">
+              <div class="muted small">显示范围</div>
+              <div id="rangeDisplay" class="small">—</div>
+            </div>
+          </div>
+
+          <div style="height:12px"></div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="muted">过去15日积分详情</div>
+            <div><button id="clearAll" class="btn ghost">清空所有数据</button></div>
+          </div>
+
+          <div id="list" class="list"></div>
+        </div>
+
+        <footer>
+          <div class="muted">提示：记录会覆盖同日已有积分并记录改动历史。可在每条记录上查看历史。</div>
+        </footer>
+      </div>
+
+      <div class="right">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:700">改动历史</div>
+              <div class="muted small">记录每次覆盖/删除操作的时间戳</div>
+            </div>
+            <div><button id="exportBtn" class="btn secondary">导出</button></div>
+          </div>
+
+          <div style="height:12px"></div>
+          <div id="history" class="history-list"></div>
+        </div>
+
+        <div style="height:12px"></div>
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:8px">使用说明</div>
+          <div class="muted small">1. 选择日期并输入积分，点击“记录”会将该日积分写入（若已有则覆盖并记录历史）。</div>
+          <div class="muted small">2. 点击“删除”将删除所选日期的积分并记录历史。</div>
+          <div class="muted small">3. 列表显示最近15日（包含今天）按日期降序。若数据不足15日则按已有日期累计。</div>
+          <div class="muted small">4. “清空所有数据”会删除已记录所有信息，不可恢复，谨慎点击。</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // --- 数据结构与本地化键 ---
+    const KEY_DATA = 'pointsData_v1';
+    const KEY_HISTORY = 'pointsHistory_v1';
+
+    function todayISO(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+
+    // load/save helpers
+    function loadData(){try{return JSON.parse(localStorage.getItem(KEY_DATA) || '{}')}catch(e){return {}}}
+    function saveData(d){localStorage.setItem(KEY_DATA, JSON.stringify(d))}
+    function loadHistory(){try{return JSON.parse(localStorage.getItem(KEY_HISTORY) || '[]')}catch(e){return []}
+    }
+    function saveHistory(h){localStorage.setItem(KEY_HISTORY, JSON.stringify(h))}
+
+    // init
+    const dateInput = document.getElementById('dateInput');
+    const pointsInput = document.getElementById('pointsInput');
+    const saveBtn = document.getElementById('saveBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const todayBtn = document.getElementById('todayBtn');
+    const list = document.getElementById('list');
+    const sumDisplay = document.getElementById('sumDisplay');
+    const rangeDisplay = document.getElementById('rangeDisplay');
+    const historyEl = document.getElementById('history');
+    const clearAll = document.getElementById('clearAll');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // set default date to today
+    dateInput.value = todayISO();
+
+    function formatDateLabel(iso){
+      const d=new Date(iso);
+      return d.toLocaleDateString();
+    }
+
+    function renderList(){
+      const data = loadData();
+      // produce last 15 days including today
+      const arr = [];
+      for(let i=0;i<15;i++){
+        const dt = new Date(); dt.setDate(dt.getDate()-i); dt.setMinutes(dt.getMinutes()-dt.getTimezoneOffset());
+        const iso = dt.toISOString().slice(0,10);
+        if(data[iso] !== undefined){ arr.push({date:iso, points: data[iso].points}); }
+        else{ arr.push({date:iso, points: null}); }
+      }
+      // show only entries that have data or show empty rows? Requirement says show past 15 day details — I'll show rows for each day with blank where none.
+      list.innerHTML = '';
+      arr.forEach(item=>{
+        const el = document.createElement('div'); el.className='list-item';
+        const left = document.createElement('div'); left.style.display='flex'; left.style.flexDirection='column';
+        const label = document.createElement('div'); label.className='date'; label.textContent = formatDateLabel(item.date);
+        const sub = document.createElement('div'); sub.className='muted small'; sub.textContent = item.points===null? '未记录' : '已记录';
+        left.appendChild(label); left.appendChild(sub);
+        const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center';
+        const pointsSpan = document.createElement('div'); pointsSpan.className='points'; pointsSpan.style.minWidth='64px'; pointsSpan.style.textAlign='right'; pointsSpan.textContent = item.points===null? '-' : item.points;
+        const actions = document.createElement('div'); actions.className='actions'; actions.style.marginLeft='12px';
+
+        const editBtn = document.createElement('button'); editBtn.className='action-btn'; editBtn.title='在左侧加载该日期'; editBtn.innerHTML = '载入';
+        editBtn.addEventListener('click', ()=>{ dateInput.value = item.date; if(item.points!==null) pointsInput.value = item.points; else pointsInput.value=''; });
+
+        const histBtn = document.createElement('button'); histBtn.className='action-btn'; histBtn.title='查看历史'; histBtn.innerHTML='历史';
+        histBtn.addEventListener('click', ()=>{ showHistoryFor(item.date); });
+
+        actions.appendChild(editBtn); actions.appendChild(histBtn);
+        right.appendChild(pointsSpan); right.appendChild(actions);
+        el.appendChild(left); el.appendChild(right);
+        list.appendChild(el);
+      });
+
+      // sum compute
+      computeSumAndRange();
+    }
+
+    function computeSumAndRange(){
+      const data = loadData();
+      const dates = [];
+      for(let i=0;i<15;i++){ const dt=new Date(); dt.setDate(dt.getDate()-i); dt.setMinutes(dt.getMinutes()-dt.getTimezoneOffset()); dates.push(dt.toISOString().slice(0,10)); }
+      let sum=0; let counted=0; let first=null; let last=null;
+      for(const d of dates){ if(data[d] !== undefined){ sum += Number(data[d].points); counted++; if(!first) first=d; last = d; } }
+      sumDisplay.textContent = sum;
+      if(counted===0){ rangeDisplay.textContent='无记录'; }
+      else{
+        // range from oldest recorded within window to newest recorded
+        rangeDisplay.textContent = (first===last? first : (last+' → '+first));
+      }
+    }
+
+    function addHistory(date, oldVal, newVal, type){
+      const h = loadHistory();
+      h.unshift({date, old: oldVal===undefined? null: oldVal, new: newVal===undefined? null: newVal, type, at: new Date().toISOString()});
+      // keep last 1000 entries
+      saveHistory(h.slice(0,1000));
+      renderHistory();
+    }
+
+    function renderHistory(){
+      const h = loadHistory();
+      historyEl.innerHTML='';
+      if(h.length===0){ historyEl.innerHTML = '<div class="empty">暂无操作历史</div>'; return; }
+      h.forEach(item=>{
+        const div = document.createElement('div'); div.className='history-item';
+        const t = new Date(item.at); const ts = t.toLocaleString();
+        div.innerHTML = `<div style="font-weight:700">${item.type.toUpperCase()} - ${item.date}</div>
+          <div class="muted small">${ts}</div>
+          <div style="margin-top:6px">原积分：${item.old===null? '-': item.old} → 改动后：${item.new===null? '-': item.new}</div>`;
+        historyEl.appendChild(div);
+      });
+    }
+
+    saveBtn.addEventListener('click', ()=>{
+      const date = dateInput.value; const pts = pointsInput.value;
+      if(!date){ alert('请选择日期'); return; }
+      if(pts===''){ alert('请输入积分（可为0）'); return; }
+      const n = parseInt(pts,10); if(isNaN(n) || n<0){ alert('请输入非负整数'); return; }
+      const data = loadData(); const prev = data[date]===undefined? undefined : data[date].points;
+      data[date] = { points: n, updatedAt: new Date().toISOString() };
+      saveData(data);
+      addHistory(date, prev===undefined? null: prev, n, prev===undefined? 'create':'update');
+      renderList();
+      toast('已保存');
+    });
+
+    deleteBtn.addEventListener('click', ()=>{
+      const date = dateInput.value;
+      if(!date){ alert('请选择日期'); return; }
+      const data = loadData();
+      if(data[date]===undefined){ alert('该日期没有记录'); return; }
+      const prev = data[date].points;
+      delete data[date]; saveData(data);
+      addHistory(date, prev, null, 'delete');
+      renderList();
+      toast('已删除');
+    });
+
+    todayBtn.addEventListener('click', ()=>{ dateInput.value = todayISO(); pointsInput.focus(); });
+
+    clearAll.addEventListener('click', ()=>{
+      if(!confirm('确认清空本地所有积分数据与历史？此操作无法撤销。')) return;
+      localStorage.removeItem(KEY_DATA); localStorage.removeItem(KEY_HISTORY);
+      renderList(); renderHistory(); toast('已清空');
+    });
+
+    function showHistoryFor(date){
+      const h = loadHistory().filter(x=>x.date===date);
+      if(h.length===0){ alert('该日期暂无历史记录'); return; }
+      // simple modal-like alert
+      let s = `【${date} 的历史】\n`;
+      h.forEach(it=>{ s += `\n${new Date(it.at).toLocaleString()}  ${it.type.toUpperCase()}  ${it.old===null?'-':it.old} → ${it.new===null?'-':it.new}` });
+      alert(s);
+    }
+
+    // small toast
+    let ttm;
+    function toast(msg){
+      const el = document.createElement('div'); el.textContent = msg; el.style.position='fixed'; el.style.left='50%'; el.style.transform='translateX(-50%)'; el.style.bottom='18px'; el.style.background='rgba(0,0,0,0.8)'; el.style.color='white'; el.style.padding='8px 12px'; el.style.borderRadius='8px'; el.style.zIndex=9999; document.body.appendChild(el);
+      clearTimeout(ttm); ttm = setTimeout(()=>{el.remove();},1600);
+    }
+
+    // export
+    exportBtn.addEventListener('click', ()=>{
+      const data = loadData(); const hist = loadHistory();
+      const blob = new Blob([JSON.stringify({data,hist},null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download = `points_export_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // render initial
+    renderList(); renderHistory();
+
+    // On load, ensure data saved shape
+    (function normalize(){
+      const d = loadData(); let changed=false;
+      Object.keys(d).forEach(k=>{ if(typeof d[k] === 'number'){ d[k] = {points: d[k], updatedAt: new Date().toISOString()}; changed=true;} });
+      if(changed) saveData(d);
+    })();
+
+  </script>
+</body>
+</html>
