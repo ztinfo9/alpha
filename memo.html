@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>📒 备忘录</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom right, #f0f9ff, #ffffff);
+      color: #333;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      background: #0284c7;
+      color: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    header h1 { margin: 0; font-size: 1.5rem; }
+    header button {
+      background: #38bdf8;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+    }
+    header button:hover { background: #0ea5e9; }
+    .container {
+      max-width: 900px;
+      margin: 1rem auto;
+      padding: 1rem;
+    }
+    .search {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+    .search input {
+      flex: 1;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    .card h2 { margin: 0; font-size: 1.2rem; }
+    .card p { white-space: pre-wrap; margin: 0.5rem 0; }
+    .tags span {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-right: 4px;
+    }
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .actions button {
+      border: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .actions button.edit { background: #e2e8f0; }
+    .actions button.delete { background: #fee2e2; color: #b91c1c; }
+    .actions button.pin { background: #fef3c7; }
+
+    /* Modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      width: 400px;
+      max-width: 90%;
+    }
+    .modal-content input, .modal-content textarea {
+      width: 100%;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    .modal-content textarea { height: 100px; resize: vertical; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📒 备忘录</h1>
+    <button onclick="openNew()">新建</button>
+  </header>
+  <div class="container">
+    <div class="search">
+      <input id="search" placeholder="搜索标题、内容或标签" oninput="render()">
+    </div>
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3 id="modal-title">新建备忘</h3>
+      <input id="note-title" placeholder="标题">
+      <textarea id="note-body" placeholder="内容"></textarea>
+      <input id="note-tags" placeholder="标签（逗号分隔）">
+      <input type="datetime-local" id="note-reminder">
+      <div style="text-align:right">
+        <button onclick="closeModal()">取消</button>
+        <button onclick="saveNote()" style="background:#0284c7;color:white;padding:0.4rem 1rem;border-radius:6px">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let items = JSON.parse(localStorage.getItem('web-memo-html')||'[]');
+    let editingId = null;
+
+    function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+    function openNew(){
+      editingId = null;
+      document.getElementById('modal-title').innerText = '新建备忘';
+      document.getElementById('note-title').value='';
+      document.getElementById('note-body').value='';
+      document.getElementById('note-tags').value='';
+      document.getElementById('note-reminder').value='';
+      document.getElementById('modal').style.display='flex';
+    }
+    function startEdit(id){
+      const it = items.find(i=>i.id===id);
+      if(!it) return;
+      editingId = id;
+      document.getElementById('modal-title').innerText = '编辑备忘';
+      document.getElementById('note-title').value=it.title;
+      document.getElementById('note-body').value=it.body;
+      document.getElementById('note-tags').value=(it.tags||[]).join(', ');
+      document.getElementById('note-reminder').value= it.reminder || '';
+      document.getElementById('modal').style.display='flex';
+    }
+    function closeModal(){
+      document.getElementById('modal').style.display='none';
+    }
+
+    function saveNote(){
+      const title=document.getElementById('note-title').value.trim();
+      const body=document.getElementById('note-body').value.trim();
+      const tags=document.getElementById('note-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+      const reminder=document.getElementById('note-reminder').value;
+      const now=Date.now();
+      if(editingId){
+        items=items.map(it=> it.id===editingId?{...it,title,body,tags,reminder,updatedAt:now}:it);
+      }else{
+        items.push({id:uid(),title:title||'(无标题)',body,tags,reminder,pinned:false,createdAt:now,updatedAt:now});
+      }
+      localStorage.setItem('web-memo-html',JSON.stringify(items));
+      closeModal();
+      render();
+    }
+
+    function removeNote(id){
+      if(!confirm('确定删除？')) return;
+      items=items.filter(it=>it.id!==id);
+      localStorage.setItem('web-memo-html',JSON.stringify(items));
+      render();
+    }
+    function togglePin(id){
+      items=items.map(it=>it.id===id?{...it,pinned:!it.pinned,updatedAt:Date.now()}:it);
+      localStorage.setItem('web-memo-html',JSON.stringify(items));
+      render();
+    }
+
+    function render(){
+      const q=document.getElementById('search').value.toLowerCase();
+      let arr=items.filter(it=>!q||it.title.toLowerCase().includes(q)||it.body.toLowerCase().includes(q)||(it.tags||[]).some(t=>t.includes(q)));
+      arr.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.updatedAt-a.updatedAt);
+      const grid=document.getElementById('grid');
+      grid.innerHTML='';
+      if(arr.length===0){ grid.innerHTML='<p style="color:#64748b;text-align:center;width:100%">暂无备忘</p>'; return;}
+      arr.forEach(it=>{
+        const card=document.createElement('div');
+        card.className='card';
+        card.innerHTML=`<h2>${it.title}</h2>
+          <div style="font-size:0.75rem;color:#94a3b8">${new Date(it.updatedAt).toLocaleString()}</div>
+          <p>${it.body}</p>
+          <div class="tags">${(it.tags||[]).map(t=>`<span>#${t}</span>`).join('')}</div>
+          ${it.reminder?`<div style="font-size:0.75rem;color:#0284c7;margin-top:0.3rem">提醒时间：${new Date(it.reminder).toLocaleString()}</div>`:''}
+          <div class="actions">
+            <button class="pin" onclick="togglePin('${it.id}')">${it.pinned?'取消固定':'固定'}</button>
+            <button class="edit" onclick="startEdit('${it.id}')">编辑</button>
+            <button class="delete" onclick="removeNote('${it.id}')">删除</button>
+          </div>`;
+        grid.appendChild(card);
+      });
+    }
+
+    function checkReminders(){
+      const now=Date.now();
+      items.forEach(it=>{
+        if(it.reminder){
+          const t=new Date(it.reminder).getTime();
+          if(!it.notified && t<=now){
+            alert('提醒：'+it.title+'\n'+it.body);
+            it.notified=true;
+          }
+        }
+      });
+    }
+    setInterval(checkReminders,30000);
+
+    render();
+  </script>
+</body>
+</html>
