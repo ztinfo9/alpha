@@ -1,0 +1,508 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稳定度看板 - 币安 Alpha</title>
+    <meta name="description" content="基于聚合成交与K线的稳定度看板：实时颜色判定（绿/黄/红），帮助快速选择相对稳定的项目以降低磨损风险。">
+    <meta name="keywords" content="币安,Alpha,稳定度,刷量,聚合成交,K线,波动率">
+    <link rel="stylesheet" href="/css/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/airdrop.css?v=1.0.42">
+    <style>
+        /* 4列表格宽度分配 */
+        #stabilityTable th:nth-child(1),
+        #stabilityTable td:nth-child(1) {
+            width: 25% !important;
+            text-align: left !important;
+        }
+        #stabilityTable th:nth-child(2),
+        #stabilityTable td:nth-child(2) {
+            width: 25% !important;
+            text-align: center !important;
+        }
+        #stabilityTable th:nth-child(3),
+        #stabilityTable td:nth-child(3) {
+            width: 20% !important;
+            text-align: left !important;
+        }
+        #stabilityTable th:nth-child(4),
+        #stabilityTable td:nth-child(4) {
+            width: 30% !important;
+            text-align: center !important;
+        }
+        .status-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:600}
+        .status-green{background:rgba(34,197,94,.15);color:#22c55e}
+        .status-yellow{background:rgba(240,185,11,.15);color:#f0b90b}
+        .status-red{background:rgba(244,63,94,.15);color:#f43f5e}
+        .muted{color:var(--muted)}
+        .number{font-variant-numeric:tabular-nums}
+        .small{font-size:.9em}
+        .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+        .dot.green{background:#22c55e}
+        .dot.yellow{background:#f0b90b}
+        .dot.red{background:#f43f5e}
+        .note{color:var(--muted);font-size:12px;margin-top:8px}
+        .rotating{animation:spin 1s linear}
+        @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        .error{color:#f43f5e}
+        .countdown-circle{
+            width:32px;
+            height:32px;
+            border:2px solid rgba(255,255,255,0.3);
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+            font-size:14px;
+            font-weight:bold;
+            color:var(--text);
+        }
+        .countdown-circle::before{
+            content:'';
+            position:absolute;
+            top:-2px;
+            left:-2px;
+            right:-2px;
+            bottom:-2px;
+            border:2px solid transparent;
+            border-top-color:#f0b90b;
+            border-radius:50%;
+            animation:countdown-rotate 15s linear infinite;
+        }
+        @keyframes countdown-rotate{
+            from{transform:rotate(0deg)}
+            to{transform:rotate(360deg)}
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <a href="/zh" class="logo">币安 <span>Alpha</span> 空投日历</a>
+            <button id="refreshButton" class="theme-toggle">
+                <div class="countdown-circle">
+                    <span id="countdownNumber">15</span>
+                </div>
+            </button>
+            <div class="header-links">
+                <a href="/zh" class="nav-link">今日空投</a>
+                <a href="/zh/history.html" class="nav-link">历史空投</a>
+                <a href="/zh/stability.html" class="nav-link active">稳定度</a>
+            </div>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h2 class="section-title"><i class="bi bi-activity"></i> 稳定度看板</h2>
+
+
+            <div class="airdrops-table-wrapper">
+                <table class="airdrops-table" id="stabilityTable">
+                    <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>稳定度</th>
+                            <th>最新价</th>
+                            <th>4倍剩余天数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stabilityBody">
+                        <tr><td colspan="4" class="muted" style="text-align:center;padding:24px">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="note">
+                <!-- 移除更新时间显示 -->
+            </div>
+            <div id="errorBox" class="error small" style="display:none;margin-top:6px"></div>
+        </div>
+    </main>
+    
+    <!-- 稳定度说明区域 -->
+    <div class="container" style="margin-bottom: 40px;">
+        <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px;">
+            <h4 style="color: #f0b90b; margin-bottom: 16px; font-size: 18px;">
+                <i class="bi bi-info-circle"></i> 稳定度说明
+            </h4>
+            <div style="line-height: 1.8; color: rgba(255,255,255,0.8);">
+                <p style="margin-bottom: 12px; font-size: 14px; opacity: 0.7;">
+                    💡 <strong>小贴士：</strong>系统每15秒自动更新数据，优先选择绿色项目减少磨损
+                </p>
+                <p style="margin-bottom: 12px; font-size: 13px; opacity: 0.6;">
+                    ⚙️ 判定标准基于价格区间、成交量波动、异常涨跌和短期趋势等多个指标综合计算
+                </p>
+                <p style="margin-bottom: 12px; font-size: 13px; opacity: 0.6;">
+                    📊 <strong>排序说明：</strong>上述按照稳定度排序，KOGE是1倍alpha可以作为稳定基线，比它靠前就更稳定
+                </p>
+                <p style="margin: 0; font-size: 12px; opacity: 0.5; color: rgba(255,255,255,0.6);">
+                    ⚠️ <strong>免责声明：</strong>行情无法预测，需自行观察历史成交记录，不对因使用本站服务造成的损失承担任何责任
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <a href="https://alpha123.uk" class="footer-link"><i class="bi bi-globe2"></i> alpha123.uk</a>
+                </div>
+                <div class="footer-right">
+                    <!-- 移除语言选择功能 -->
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const FEED_URL = '/stability_feed.json';
+
+        // 可调整的阈值配置
+        const THRESHOLDS = {
+            green: {
+                range: 6,
+                vol: 3,
+                spike: 0.05, // 5%
+                trend5m: 20
+            },
+            yellow: {
+                range: 15,
+                vol: 8,
+                spike: 0.15, // 15%
+                trend5m: 50
+            }
+        };
+
+        let TOKENS = [];
+
+        let feedTimer = null;
+
+        let countdownTimer = null;
+        let countdownSeconds = 15;
+        let lastDataHash = '';
+        let consecutiveErrors = 0;
+        let backgroundTab = false;
+
+        document.addEventListener('DOMContentLoaded', function(){
+            document.getElementById('refreshButton').addEventListener('click', function(){
+                refreshAll(true);
+                resetCountdown();
+            });
+            
+            // 页面可见性检测
+            document.addEventListener('visibilitychange', function() {
+                backgroundTab = document.hidden;
+                if (!backgroundTab) {
+                    // 页面重新可见时立即刷新
+                    refreshAll(true);
+                    resetCountdown();
+                }
+            });
+            
+            setupTimers();
+            startCountdown();
+        });
+
+
+
+        function renderTableSkeleton(){
+            const tbody = document.getElementById('stabilityBody');
+            if (TOKENS.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">加载中...</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = TOKENS.map(t => {
+                const needMap = String(t.symbol||'').includes('XXX');
+                const multiplierDays = t.multiplier_days || 0;
+                return `<tr data-symbol="${t.symbol}">
+                    <td><strong>${t.display}</strong></td>
+                    <td data-field="status">${needMap ? `<span class="status-chip status-yellow"><span class="dot yellow"></span><span>待映射</span></span>` : `<span class="status-chip"><span class="dot"></span><span>计算中</span></span>`}</td>
+                    <td class="number" data-field="lastPrice">-</td>
+                    <td class="number" data-field="multiplierDays">${multiplierDays}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function setupTimers(){
+            if (feedTimer) clearInterval(feedTimer);
+            const iv = 15000; // 固定15秒刷新间隔
+            feedTimer = setInterval(() => {
+                // 后台标签页时降低刷新频率
+                if (backgroundTab) {
+                    if (Math.random() < 0.1) { // 10%概率刷新
+                        pollFeed();
+                    }
+                } else {
+                    pollFeed();
+                }
+            }, iv);
+            pollFeed(true);
+        }
+
+        function refreshAll(force=false){
+            if (force) {
+                consecutiveErrors = 0;
+                if (feedTimer) {
+                    clearInterval(feedTimer);
+                    feedTimer = null;
+                }
+                // 重新从“现在”开始计算15s的自动刷新周期，并会立即拉取一次
+                setupTimers();
+                return;
+            }
+            return pollFeed(false);
+        }
+
+        async function pollFeed(force=false){
+            try {
+                const url = FEED_URL;
+                const fetchOptions = force ? { cache: 'no-cache' } : {};
+                const res = await fetch(url, fetchOptions);
+                if (!res.ok) throw new Error('feed http ' + res.status);
+                const data = await res.json();
+                if (!data || !Array.isArray(data.items)) throw new Error('feed invalid');
+                
+                // 计算数据哈希，避免无意义的DOM更新
+                const dataHash = JSON.stringify(data.items.map(item => ({
+                    symbol: item.symbol,
+                    status: item.status,
+                    lastPrice: item.metrics?.lastPrice,
+                    multiplierDays: item.multiplier_days
+                })));
+                
+                if (dataHash === lastDataHash && !force) {
+                    consecutiveErrors = 0;
+                    return; // 数据未变化，跳过DOM更新
+                }
+                lastDataHash = dataHash;
+                if (TOKENS.length === 0) {
+                    TOKENS = data.items.map(item => ({
+                        key: item.key,
+                        display: (item.display || item.key).replace('/USDT', ''), 
+                        symbol: item.symbol,
+                        multiplier_days: item.multiplier_days || 0
+                    }));
+                    renderTableSkeleton();
+                } 
+                // 按稳定度排序：绿色(稳定) > 黄色(待观察) > 红色(不稳定)
+                const getStabilityPriority = (item) => {
+                    if (!item.mapped) return 99; // 待映射放最后
+                    const metrics = item.metrics || {};
+                    const trend5m = item.trend5m ?? null;
+                    const status = calculateStatus(metrics, trend5m);
+                    if (status.color === 'green') return 1; // 稳定
+                    if (status.color === 'yellow') return 2; // 待观察
+                    return 3; // 不稳定
+                };
+                
+                const allItems = data.items.sort((a, b) => {
+                    const priorityA = getStabilityPriority(a);
+                    const priorityB = getStabilityPriority(b);
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+                    // 同等稳定度按名称排序
+                    return (a.display || a.key).localeCompare(b.display || b.key);
+                });
+                
+                // 重新渲染表格以保持排序顺序
+                const tbody = document.getElementById('stabilityBody');
+                tbody.innerHTML = '';
+                
+                allItems.forEach(item => {
+                    const sym = item.symbol || 'ALPHA_XXXUSDT';
+                    const displayName = (item.display || item.key).replace('/USDT', '');
+                    const multiplierDays = item.multiplier_days || 0;
+                    
+                    // 创建行
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-symbol', sym);
+                    
+                    if (!item.mapped) {
+                        row.innerHTML = `
+                            <td><strong>${displayName}</strong></td>
+                            <td data-field="status"><span class="status-chip status-yellow"><span class="dot yellow"></span><span>待映射</span></span></td>
+                            <td class="number" data-field="lastPrice">-</td>
+                            <td class="number" data-field="multiplierDays">${multiplierDays}</td>
+                        `;
+                    } else {
+                        const metrics = item.metrics || {};
+                        const trend5m = item.trend5m ?? null;
+                        const status = calculateStatus(metrics, trend5m);
+                        const cls = status.color==='green'?'status-green':(status.color==='yellow'?'status-yellow':'status-red');
+                        const dot = status.color==='green'?'green':(status.color==='yellow'?'yellow':'red');
+                        const localizedText = getLocalizedStatusText(status.text);
+                        
+                        row.innerHTML = `
+                            <td><strong>${displayName}</strong></td>
+                            <td data-field="status"><span class="status-chip ${cls}"><span class="dot ${dot}"></span><span>${localizedText}</span></span></td>
+                            <td class="number" data-field="lastPrice">${formatNumber(metrics.lastPrice, 8)}</td>
+                            <td class="number" data-field="multiplierDays">${multiplierDays}</td>
+                        `;
+                    }
+                    
+                    tbody.appendChild(row);
+                });
+                consecutiveErrors = 0;
+                hideError();
+            } catch (e) {
+                consecutiveErrors++;
+                console.warn('Feed fetch error:', e.message, 'consecutive:', consecutiveErrors);
+                
+                // 连续错误3次以上时暂停自动刷新
+                if (consecutiveErrors >= 3) {
+                    if (feedTimer) {
+                        clearInterval(feedTimer);
+                        feedTimer = null;
+                    }
+                    showError('连接异常，已暂停自动刷新。点击右上角按钮手动重试。');
+                } else {
+                    showError(`读取数据失败 (${consecutiveErrors}/3)，自动重试中...`);
+                }
+            }
+        }
+
+        function renderRow(symbol, metrics, trend5m, status, multiplierDays){
+            const row = document.querySelector(`tr[data-symbol="${symbol}"]`);
+            if (!row) return;
+            if (String(symbol).includes('XXX')) {
+                const cell = row.querySelector('[data-field="status"]');
+                if (cell) cell.innerHTML = `<span class="status-chip status-yellow"><span class="dot yellow"></span><span>待映射</span></span>`;
+                return;
+            }
+            
+            // 更新最新价
+            setText(row,'lastPrice', formatNumber(metrics.lastPrice, 8));
+            
+            // 根据新规则计算状态
+            const newStatus = calculateStatus(metrics, trend5m);
+            const cell = row.querySelector('[data-field="status"]');
+            const cls = newStatus.color==='green'?'status-green':(newStatus.color==='yellow'?'status-yellow':'status-red');
+            const dot = newStatus.color==='green'?'green':(newStatus.color==='yellow'?'yellow':'red');
+            const localizedText = getLocalizedStatusText(newStatus.text);
+            cell.innerHTML = `<span class="status-chip ${cls}"><span class="dot ${dot}"></span><span>${localizedText}</span></span>`;
+            
+            // 更新4倍剩余天数 - 直接使用API传入的数据
+            setText(row, 'multiplierDays', multiplierDays || '0');
+        }
+
+        function calculateStatus(metrics, trend5m) {
+            // 如果60s无成交，直接判红
+            if (!metrics.tpm || metrics.tpm === 0) {
+                return { color: 'red', text: 'no_trade' };
+            }
+
+            const range = metrics.rangeBps || 0;
+            const vol = metrics.volBps || 0;
+            const spike = metrics.spikeRatio || 0;
+            const trend = trend5m || 0;
+
+            // 绿色条件：≤6/≤3/≤5% 且 5m趋势≤20bps
+            if (range <= THRESHOLDS.green.range && 
+                vol <= THRESHOLDS.green.vol && 
+                spike <= THRESHOLDS.green.spike && 
+                Math.abs(trend) <= THRESHOLDS.green.trend5m) {
+                return { color: 'green', text: 'stable' };
+            }
+
+            // 黄色条件：≤15/≤8/≤15% 且 5m≤50bps
+            if (range <= THRESHOLDS.yellow.range && 
+                vol <= THRESHOLDS.yellow.vol && 
+                spike <= THRESHOLDS.yellow.spike && 
+                Math.abs(trend) <= THRESHOLDS.yellow.trend5m) {
+                return { color: 'yellow', text: 'moderate' };
+            }
+
+            // 否则红色
+            return { color: 'red', text: 'unstable' };
+        }
+
+        function setText(row, field, v){
+            const el = row.querySelector(`[data-field="${field}"]`);
+            if (el) el.textContent = (v==null || v===undefined || Number.isNaN(v)) ? '-' : v;
+        }
+
+        function formatNumber(v, maxLen){
+            if (v==null || !isFinite(v)) return null;
+            const s = v.toString();
+            if (s.includes('.')) {
+                const [a,b] = s.split('.');
+                return `${a}.${b.slice(0, Math.min(maxLen||8, 8))}`;
+            }
+            return s;
+        }
+
+        function formatBps(v){
+            if (v==null || !isFinite(v)) return '-';
+            return Math.round(v).toString();
+        }
+
+        function formatPercent(v){
+            if (v==null || !isFinite(v)) return '-';
+            return (v*100).toFixed(1)+'%';
+        }
+
+        function showError(msg){
+            const box = document.getElementById('errorBox');
+            box.style.display = 'block';
+            box.textContent = msg;
+        }
+
+        function hideError(){
+            const box = document.getElementById('errorBox');
+            box.style.display = 'none';
+            box.textContent = '';
+        }
+
+        function startCountdown(){
+            countdownSeconds = 15;
+            updateCountdownDisplay();
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                countdownSeconds--;
+                updateCountdownDisplay();
+                if (countdownSeconds <= 0) {
+                    resetCountdown();
+                }
+            }, 1000);
+        }
+
+        function resetCountdown(){
+            if (countdownTimer) clearInterval(countdownTimer);
+            const el = document.getElementById('countdownNumber');
+            if (el) el.textContent = '15';
+            // 重启圆环旋转动画（通过替换节点重置 ::before 动画）
+            const circle = document.querySelector('.countdown-circle');
+            if (circle && circle.parentNode) {
+                const newCircle = circle.cloneNode(true);
+                circle.parentNode.replaceChild(newCircle, circle);
+            }
+            startCountdown();
+        }
+
+        function updateCountdownDisplay(){
+            const el = document.getElementById('countdownNumber');
+            if (el) el.textContent = countdownSeconds;
+        }
+
+        function getLocalizedStatusText(englishText) {
+            const translations = {
+                'stable': '稳定',
+                'moderate': '一般', 
+                'unstable': '不稳定',
+                'no_trade': '无成交',
+                'pending': '待映射'
+            };
+            return translations[englishText] || englishText;
+        }
+    </script>
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "s8evkid0ub");
+    </script>    
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'984ac7b5fc14ed36',t:'MTc1ODgwNjAxOQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"05b2f73255d64509b38e379d9142b573","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
